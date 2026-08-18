@@ -77,6 +77,9 @@ private fun LogCard(log: DeliveryLog, onRetry: () -> Unit) {
                 Text(log.appName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 Text(log.status, color = statusColor, style = MaterialTheme.typography.labelLarge)
             }
+            if (log.otp != null) {
+                Text("OTP ${log.otp}", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))
+            }
             if (log.title.isNotBlank()) {
                 Text(log.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))
             }

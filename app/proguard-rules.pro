@@ -1,4 +1,8 @@
 -keep class com.notificationsaver.app.data.db.** { *; }
+-keep class com.goterl.lazysodium.** { *; }
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.** { public *; }
+-dontwarn com.sun.jna.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn org.conscrypt.**

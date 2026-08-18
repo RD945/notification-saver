@@ -12,6 +12,8 @@ import com.notificationsaver.app.data.ListenerStatus
 import com.notificationsaver.app.data.NotificationDeduplicator
 import com.notificationsaver.app.data.db.DeliveryLog
 import com.notificationsaver.app.data.db.DeliveryStatus
+import com.notificationsaver.app.data.db.DestStatus
+import com.notificationsaver.app.data.otp.OtpDetector
 import com.notificationsaver.app.worker.SendTelegramWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +31,7 @@ class ForwardNotificationListener : NotificationListenerService() {
         ListenerStatus.setConnected(true)
         unbindJob?.cancel()
         unbindJob = NotificationSaverApp.instance.container.settings.settings
-            .map { it.forwardingEnabled }
+            .map { it.listenerShouldRun }
             .distinctUntilChanged()
             .onEach { enabled ->
                 if (!enabled) {
@@ -45,7 +47,7 @@ class ForwardNotificationListener : NotificationListenerService() {
         unbindJob = null
         ListenerStatus.setConnected(false)
         val enabled = runCatching {
-            NotificationSaverApp.instance.container.settings.cached.forwardingEnabled
+            NotificationSaverApp.instance.container.settings.cached.listenerShouldRun
         }.getOrDefault(false)
         if (enabled) {
             requestRebind(component(this))
@@ -55,7 +57,7 @@ class ForwardNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val settings = NotificationSaverApp.instance.container.settings.cached
-        if (!settings.forwardingEnabled) return
+        if (!settings.listenerShouldRun) return
         if (sbn.packageName == packageName) return
         if (settings.ignoreTelegram && sbn.packageName in TELEGRAM_PACKAGES) return
         if (sbn.isOngoing) return
@@ -68,6 +70,9 @@ class ForwardNotificationListener : NotificationListenerService() {
         val text = extras.charSequence(Notification.EXTRA_BIG_TEXT)
             .ifBlank { extras.charSequence(Notification.EXTRA_TEXT) }
         if (title.isBlank() && text.isBlank()) return
+
+        val otp = OtpDetector.extract(title, text)
+        if (settings.otpOnly && otp == null) return
 
         val appName = runCatching {
             packageManager.getApplicationLabel(
@@ -84,7 +89,13 @@ class ForwardNotificationListener : NotificationListenerService() {
             queuedAt = System.currentTimeMillis(),
             status = DeliveryStatus.QUEUED.name,
             notificationKey = sbn.key,
+            otp = otp,
+            telegramStatus = if (settings.telegramActive) DestStatus.QUEUED.name else DestStatus.SKIPPED.name,
+            npointStatus = if (settings.npointActive) DestStatus.QUEUED.name else DestStatus.SKIPPED.name,
         )
+        if (log.telegramStatus == DestStatus.SKIPPED.name && log.npointStatus == DestStatus.SKIPPED.name) {
+            return
+        }
 
         NotificationSaverApp.instance.applicationScope.launch(Dispatchers.IO) {
             NotificationSaverApp.instance.container.database.deliveryLogDao().insert(log)

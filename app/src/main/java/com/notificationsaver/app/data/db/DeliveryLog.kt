@@ -10,6 +10,13 @@ enum class DeliveryStatus {
     FAILED,
 }
 
+enum class DestStatus {
+    SKIPPED,
+    QUEUED,
+    SENT,
+    FAILED,
+}
+
 @Entity(
     tableName = "delivery_logs",
     indices = [
@@ -29,4 +36,15 @@ data class DeliveryLog(
     val error: String? = null,
     val retryCount: Int = 0,
     val notificationKey: String,
-)
+    val otp: String? = null,
+    val telegramStatus: String = DestStatus.SKIPPED.name,
+    val npointStatus: String = DestStatus.SKIPPED.name,
+) {
+    fun overallStatus(): String {
+        val dests = listOf(telegramStatus, npointStatus)
+        if (dests.any { it == DestStatus.QUEUED.name }) return DeliveryStatus.QUEUED.name
+        if (dests.any { it == DestStatus.FAILED.name }) return DeliveryStatus.FAILED.name
+        if (dests.all { it == DestStatus.SKIPPED.name }) return DeliveryStatus.FAILED.name
+        return DeliveryStatus.SENT.name
+    }
+}

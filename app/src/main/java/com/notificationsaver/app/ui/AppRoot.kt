@@ -32,6 +32,7 @@ import com.notificationsaver.app.NotificationSaverApp
 import com.notificationsaver.app.ui.apps.AppsScreen
 import com.notificationsaver.app.ui.home.HomeScreen
 import com.notificationsaver.app.ui.logs.LogsScreen
+import com.notificationsaver.app.ui.npoint.NpointScreen
 import com.notificationsaver.app.ui.setup.SetupScreen
 import com.notificationsaver.app.ui.telegram.TelegramScreen
 import com.notificationsaver.app.ui.theme.AppleBackground
@@ -68,7 +69,7 @@ fun AppRoot() {
         return
     }
 
-    if (!settings.telegramConfigured) {
+    if (!settings.setupComplete) {
         SetupScreen()
         return
     }
@@ -116,7 +117,11 @@ fun AppRoot() {
                             restoreState = true
                         }
                     },
+                    onOpenNpoint = { navController.navigate("npoint") },
                 )
+            }
+            composable("npoint") {
+                NpointScreen(onBack = { navController.popBackStack() })
             }
             composable("telegram") { TelegramScreen() }
             composable("apps") { AppsScreen() }

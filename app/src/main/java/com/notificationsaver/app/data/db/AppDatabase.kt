@@ -6,12 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [DeliveryLog::class],
-    version = 1,
+    entities = [DeliveryLog::class, NpointBinItem::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun deliveryLogDao(): DeliveryLogDao
+    abstract fun npointItemDao(): NpointItemDao
 
     companion object {
         fun create(context: Context): AppDatabase =

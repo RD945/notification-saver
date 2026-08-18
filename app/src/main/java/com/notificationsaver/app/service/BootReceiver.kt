@@ -16,7 +16,7 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         NotificationSaverApp.instance.applicationScope.launch {
             try {
-                val enabled = NotificationSaverApp.instance.container.settings.current().forwardingEnabled
+                val enabled = NotificationSaverApp.instance.container.settings.current().listenerShouldRun
                 if (enabled) {
                     ForwardNotificationListener.rebind(context)
                 }

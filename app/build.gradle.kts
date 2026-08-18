@@ -75,5 +75,12 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.okhttp)
+    implementation(libs.lazysodium.android) {
+        artifact { type = "aar" }
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
+    implementation(libs.jna) {
+        artifact { type = "aar" }
+    }
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

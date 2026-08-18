@@ -47,6 +47,8 @@ enum class NoticeAction {
     OpenBackgroundSettings,
     OpenAppInfo,
     ConfirmReset,
+    ConfirmResetKeys,
+    ConfirmClearBin,
 }
 
 @Composable

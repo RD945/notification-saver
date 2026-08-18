@@ -30,7 +30,7 @@ data class HomeUiState(
     val busy: Boolean = false,
 ) {
     val canForward: Boolean
-        get() = settings.telegramConfigured && hasAccess && settings.allowlist.isNotEmpty()
+        get() = settings.setupComplete && hasAccess && settings.allowlist.isNotEmpty()
 }
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -75,13 +75,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
             NoticeAction.OpenAppInfo -> DeviceStatus.openAppInfo(app)
             NoticeAction.ConfirmReset -> resetAll()
+            NoticeAction.ConfirmResetKeys,
+            NoticeAction.ConfirmClearBin,
+            -> Unit
         }
     }
 
     fun requestReset() {
         flash.value = AppNotice(
             title = "Reset all",
-            message = "This clears the bot token, chat ID, target apps, logs, and forwarding. You will set Telegram up again.",
+            message = "This clears Telegram, npoint, keys, target apps, logs, and forwarding. You will set a destination up again.",
             actionLabel = "Reset",
             action = NoticeAction.ConfirmReset,
         )
@@ -91,6 +94,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             ForwardNotificationListener.unbind(app)
             app.container.database.deliveryLogDao().clear()
+            app.container.database.npointItemDao().clear()
             SendTelegramWorker.cancelImmediate(app)
             PingWorker.cancel(app)
             app.container.settings.reset()
@@ -102,6 +106,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             app.container.settings.setHourlyPingEnabled(enabled)
             PingWorker.sync(app, enabled)
+        }
+    }
+
+    fun setOtpOnly(enabled: Boolean) {
+        viewModelScope.launch {
+            app.container.settings.setOtpOnly(enabled)
         }
     }
 
@@ -121,7 +131,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun setEnabled(enabled: Boolean) {
+    fun setTelegramEnabled(enabled: Boolean) {
         viewModelScope.launch {
             if (enabled) {
                 val settings = app.container.settings.cached
@@ -132,35 +142,69 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     return@launch
                 }
-                if (!DeviceStatus.hasNotificationAccess(app)) {
-                    flash.value = AppNotice(
-                        title = "Notification access",
-                        message = "Notification access is required",
-                    )
-                    DeviceStatus.openNotificationAccess(app)
-                    return@launch
-                }
-                if (settings.allowlist.isEmpty()) {
-                    flash.value = AppNotice(
-                        title = "Target apps",
-                        message = "Select at least one app on the Apps tab",
-                    )
-                    return@launch
-                }
+                if (!requireForwardingPrereqs(settings.allowlist.isEmpty())) return@launch
                 app.container.settings.setForwardingEnabled(true)
-                ForwardNotificationListener.rebind(app)
-                if (!DeviceStatus.isIgnoringBatteryOptimizations(app)) {
-                    flash.value = AppNotice(
-                        title = "Allow background running",
-                        message = "Set battery to Unrestricted so forwarding can keep running.",
-                        actionLabel = "Open settings",
-                        action = NoticeAction.OpenBackgroundSettings,
-                    )
-                }
             } else {
                 app.container.settings.setForwardingEnabled(false)
-                ForwardNotificationListener.unbind(app)
             }
+            syncListener()
+        }
+    }
+
+    fun setNpointEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            if (enabled) {
+                app.container.settings.ensureNpointKeys()
+                val settings = app.container.settings.current()
+                if (!settings.npointConfigured) {
+                    flash.value = AppNotice(
+                        title = "npoint",
+                        message = "Save the npoint API URL first",
+                    )
+                    return@launch
+                }
+                if (!requireForwardingPrereqs(settings.allowlist.isEmpty())) return@launch
+                app.container.settings.setNpointEnabled(true)
+            } else {
+                app.container.settings.setNpointEnabled(false)
+            }
+            syncListener()
+        }
+    }
+
+    private suspend fun requireForwardingPrereqs(allowlistEmpty: Boolean): Boolean {
+        if (!DeviceStatus.hasNotificationAccess(app)) {
+            flash.value = AppNotice(
+                title = "Notification access",
+                message = "Notification access is required",
+            )
+            DeviceStatus.openNotificationAccess(app)
+            return false
+        }
+        if (allowlistEmpty) {
+            flash.value = AppNotice(
+                title = "Target apps",
+                message = "Select at least one app on the Apps tab",
+            )
+            return false
+        }
+        if (!DeviceStatus.isIgnoringBatteryOptimizations(app)) {
+            flash.value = AppNotice(
+                title = "Allow background running",
+                message = "Set battery to Unrestricted so forwarding can keep running.",
+                actionLabel = "Open settings",
+                action = NoticeAction.OpenBackgroundSettings,
+            )
+        }
+        return true
+    }
+
+    private suspend fun syncListener() {
+        val settings = app.container.settings.current()
+        if (settings.listenerShouldRun) {
+            ForwardNotificationListener.rebind(app)
+        } else {
+            ForwardNotificationListener.unbind(app)
         }
     }
 

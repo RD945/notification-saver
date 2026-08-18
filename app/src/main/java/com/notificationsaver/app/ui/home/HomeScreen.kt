@@ -37,6 +37,7 @@ import com.notificationsaver.app.ui.theme.appOutlinedButtonColors
 @Composable
 fun HomeScreen(
     onOpenApps: () -> Unit = {},
+    onOpenNpoint: () -> Unit = {},
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -57,14 +58,54 @@ fun HomeScreen(
                 GroupedRow(
                     title = "Forward to Telegram",
                     subtitle = when {
-                        state.settings.forwardingEnabled -> "On — listener is bound"
-                        !state.canForward -> "Finish setup below first"
-                        else -> "Off — listener unbound"
+                        state.settings.telegramActive -> "On"
+                        !state.settings.telegramConfigured -> "Save bot token and chat ID first"
+                        else -> "Off"
                     },
                     trailing = {
                         Switch(
-                            checked = state.settings.forwardingEnabled,
-                            onCheckedChange = vm::setEnabled,
+                            checked = state.settings.forwardingEnabled && state.settings.telegramConfigured,
+                            onCheckedChange = vm::setTelegramEnabled,
+                        )
+                    },
+                )
+                GroupedDivider()
+                GroupedRow(
+                    title = "Forward to npoint",
+                    subtitle = when {
+                        state.settings.npointActive -> "On"
+                        !state.settings.npointConfigured -> "Set the bin URL first"
+                        else -> "Off"
+                    },
+                    trailing = {
+                        Switch(
+                            checked = state.settings.npointEnabled && state.settings.npointConfigured,
+                            onCheckedChange = vm::setNpointEnabled,
+                        )
+                    },
+                )
+                GroupedDivider()
+                GroupedRow(
+                    title = "npoint bin",
+                    subtitle = if (state.settings.npointUrl.isBlank()) {
+                        "Tap to enter API URL and keys"
+                    } else {
+                        "URL, keys, test, clear"
+                    },
+                    onClick = onOpenNpoint,
+                )
+                GroupedDivider()
+                GroupedRow(
+                    title = "OTP only",
+                    subtitle = if (state.settings.otpOnly) {
+                        "Only one-time codes are forwarded"
+                    } else {
+                        "Off — every allowlisted notification is sent"
+                    },
+                    trailing = {
+                        Switch(
+                            checked = state.settings.otpOnly,
+                            onCheckedChange = vm::setOtpOnly,
                         )
                     },
                 )
@@ -83,7 +124,7 @@ fun HomeScreen(
                     title = "Listener",
                     subtitle = when {
                         state.listenerConnected -> "Connected — tap to reconnect"
-                        state.settings.forwardingEnabled -> "Waiting — tap to reconnect"
+                        state.settings.listenerShouldRun -> "Waiting — tap to reconnect"
                         else -> "Idle — tap to reconnect"
                     },
                     onClick = vm::onListenerTap,

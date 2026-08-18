@@ -22,13 +22,33 @@ interface DeliveryLogDao {
     @Query(
         """
         UPDATE delivery_logs
-        SET status = :status, error = :error, retryCount = retryCount + :retryDelta
+        SET telegramStatus = :telegramStatus,
+            npointStatus = :npointStatus,
+            status = :status,
+            error = :error,
+            retryCount = retryCount + :retryDelta
         WHERE id = :id
         """,
     )
-    suspend fun updateStatus(id: Long, status: String, error: String?, retryDelta: Int)
+    suspend fun updateDelivery(
+        id: Long,
+        telegramStatus: String,
+        npointStatus: String,
+        status: String,
+        error: String?,
+        retryDelta: Int,
+    )
 
-    @Query("UPDATE delivery_logs SET status = 'QUEUED', error = NULL WHERE id = :id")
+    @Query(
+        """
+        UPDATE delivery_logs
+        SET telegramStatus = CASE WHEN telegramStatus = 'FAILED' THEN 'QUEUED' ELSE telegramStatus END,
+            npointStatus = CASE WHEN npointStatus = 'FAILED' THEN 'QUEUED' ELSE npointStatus END,
+            status = 'QUEUED',
+            error = NULL
+        WHERE id = :id
+        """,
+    )
     suspend fun requeue(id: Long)
 
     @Query("DELETE FROM delivery_logs")

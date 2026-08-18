@@ -22,7 +22,7 @@ class HealthWorker(
             NotificationSaverApp.instance.container.settings.current()
         }.getOrNull() ?: return Result.success()
 
-        if (!settings.forwardingEnabled) return Result.success()
+        if (!settings.listenerShouldRun) return Result.success()
         if (!ForwardNotificationListener.hasAccess(applicationContext)) return Result.success()
         if (ListenerStatus.connected.value) return Result.success()
 

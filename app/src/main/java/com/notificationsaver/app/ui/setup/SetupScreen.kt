@@ -23,14 +23,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.notificationsaver.app.ui.components.AppleAlert
 import com.notificationsaver.app.ui.components.LargeTitle
-import com.notificationsaver.app.ui.telegram.TelegramViewModel
+import com.notificationsaver.app.ui.components.SectionHeader
 import com.notificationsaver.app.ui.theme.AppleLabel
+import com.notificationsaver.app.ui.theme.AppleSecondaryLabel
 import com.notificationsaver.app.ui.theme.appButtonColors
 import com.notificationsaver.app.ui.theme.appOutlinedButtonColors
 import com.notificationsaver.app.ui.theme.appTextFieldColors
 
 @Composable
-fun SetupScreen(vm: TelegramViewModel = viewModel()) {
+fun SetupScreen(vm: SetupViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -39,13 +40,15 @@ fun SetupScreen(vm: TelegramViewModel = viewModel()) {
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
-            LargeTitle("Set up Telegram")
+            LargeTitle("Set up a destination")
             Text(
-                "Create a bot with @BotFather, then get your chat ID from @userinfobot. Both stay on this phone. The rest of the app unlocks after you save them.",
+                "Save Telegram, an npoint bin, or both. The rest of the app unlocks after one destination is ready.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppleLabel,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
+
+            SectionHeader("Telegram")
             OutlinedTextField(
                 value = state.token,
                 onValueChange = vm::onTokenChange,
@@ -69,24 +72,54 @@ fun SetupScreen(vm: TelegramViewModel = viewModel()) {
                 colors = appTextFieldColors(),
             )
             Button(
-                onClick = vm::save,
+                onClick = vm::saveTelegram,
                 enabled = state.token.isNotBlank() && state.chatId.isNotBlank(),
                 colors = appButtonColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                Text("Save and continue", color = AppleLabel)
+                Text("Save Telegram and continue", color = AppleLabel)
             }
             OutlinedButton(
-                onClick = vm::testConnection,
+                onClick = vm::testTelegram,
                 enabled = !state.busy && state.token.isNotBlank() && state.chatId.isNotBlank(),
                 colors = appOutlinedButtonColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
             ) {
-                Text(if (state.busy) "Testing…" else "Test connection", color = AppleLabel)
+                Text(if (state.busy) "Testing…" else "Test Telegram", color = AppleLabel)
+            }
+
+            SectionHeader("npoint")
+            Text(
+                "Create a bin on npoint.io while logged out, then paste the API URL. Encode and decode keys are generated on this phone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppleLabel,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            OutlinedTextField(
+                value = state.npointUrl,
+                onValueChange = vm::onUrlChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                label = { Text("API URL", color = AppleLabel) },
+                placeholder = { Text("https://api.npoint.io/…", color = AppleSecondaryLabel) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                colors = appTextFieldColors(),
+            )
+            Button(
+                onClick = vm::saveNpoint,
+                enabled = state.npointUrl.isNotBlank(),
+                colors = appButtonColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text("Save npoint and continue", color = AppleLabel)
             }
         }
 
