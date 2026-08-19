@@ -49,7 +49,7 @@ fun NpointScreen(
             ) { Text("Back") }
             LargeTitle("npoint")
             Text(
-                "Create a JSON bin on npoint.io while logged out, then paste the API URL. The public bin only stores sealed ciphertext. Anyone with the decode key can read it.",
+                "Create a JSON bin on npoint.io while logged out, then paste the API URL. Tap Generate keys, or paste a pair. The public bin only stores sealed ciphertext. Anyone with the decode key can read it.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppleLabel,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -102,8 +102,8 @@ fun NpointScreen(
             )
             OutlinedTextField(
                 value = state.encodeKey,
-                onValueChange = {},
-                readOnly = true,
+                onValueChange = { if (state.keysEditable) vm.onEncodeChange(it) },
+                readOnly = !state.keysEditable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -120,8 +120,8 @@ fun NpointScreen(
             ) { Text("Copy encode key", color = AppleLabel) }
             OutlinedTextField(
                 value = state.decodeKey,
-                onValueChange = {},
-                readOnly = true,
+                onValueChange = { if (state.keysEditable) vm.onDecodeChange(it) },
+                readOnly = !state.keysEditable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -136,20 +136,33 @@ fun NpointScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
             ) { Text("Copy decode key", color = AppleLabel) }
+            if (!state.keysEditable) {
+                OutlinedButton(
+                    onClick = vm::editKeys,
+                    colors = appOutlinedButtonColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { Text("Edit keys", color = AppleLabel) }
+            }
             OutlinedButton(
-                onClick = vm::requestResetKeys,
+                onClick = vm::generateKeys,
                 colors = appOutlinedButtonColors(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            ) { Text("Reset keys", color = AppleLabel) }
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = if (state.keysEditable) 12.dp else 0.dp,
+                    ),
+            ) { Text("Generate keys", color = AppleLabel) }
             OutlinedButton(
                 onClick = vm::requestClearBin,
                 enabled = !state.busy && state.configured,
                 colors = appOutlinedButtonColors(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
             ) { Text("Clear bin", color = AppleLabel) }
         }
 

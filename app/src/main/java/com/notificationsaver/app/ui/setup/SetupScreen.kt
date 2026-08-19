@@ -94,7 +94,7 @@ fun SetupScreen(vm: SetupViewModel = viewModel()) {
 
             SectionHeader("npoint")
             Text(
-                "Create a bin on npoint.io while logged out, then paste the API URL. Encode and decode keys are generated on this phone.",
+                "Create a bin on npoint.io while logged out, then paste the API URL. Tap Generate keys, or leave the key fields blank and paste a pair you already have.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppleLabel,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -111,9 +111,38 @@ fun SetupScreen(vm: SetupViewModel = viewModel()) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 colors = appTextFieldColors(),
             )
+            OutlinedTextField(
+                value = state.npointEncodeKey,
+                onValueChange = vm::onEncodeChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                label = { Text("Encode key", color = AppleLabel) },
+                colors = appTextFieldColors(),
+            )
+            OutlinedTextField(
+                value = state.npointDecodeKey,
+                onValueChange = vm::onDecodeChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                label = { Text("Decode key", color = AppleLabel) },
+                colors = appTextFieldColors(),
+            )
+            OutlinedButton(
+                onClick = vm::generateKeys,
+                colors = appOutlinedButtonColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Text("Generate keys", color = AppleLabel)
+            }
             Button(
                 onClick = vm::saveNpoint,
-                enabled = state.npointUrl.isNotBlank(),
+                enabled = state.npointUrl.isNotBlank() &&
+                    state.npointEncodeKey.isNotBlank() &&
+                    state.npointDecodeKey.isNotBlank(),
                 colors = appButtonColors(),
                 modifier = Modifier
                     .fillMaxWidth()

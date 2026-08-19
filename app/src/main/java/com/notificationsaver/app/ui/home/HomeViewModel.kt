@@ -180,12 +180,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun setNpointEnabled(enabled: Boolean) {
         viewModelScope.launch {
             if (enabled) {
-                app.container.settings.ensureNpointKeys()
                 val settings = app.container.settings.current()
                 if (!settings.npointConfigured) {
                     flash.value = AppNotice(
                         title = "npoint",
-                        message = "Save the npoint API URL first",
+                        message = "Save the npoint API URL and keys first",
                     )
                     return@launch
                 }

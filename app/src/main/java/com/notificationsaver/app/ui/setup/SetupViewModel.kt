@@ -19,6 +19,8 @@ data class SetupUiState(
     val token: String = "",
     val chatId: String = "",
     val npointUrl: String = "",
+    val npointEncodeKey: String = "",
+    val npointDecodeKey: String = "",
     val notice: AppNotice? = null,
     val busy: Boolean = false,
 )
@@ -28,22 +30,28 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
     private val tokenDraft = MutableStateFlow<String?>(null)
     private val chatDraft = MutableStateFlow<String?>(null)
     private val urlDraft = MutableStateFlow<String?>(null)
+    private val encodeDraft = MutableStateFlow<String?>(null)
+    private val decodeDraft = MutableStateFlow<String?>(null)
     private val flash = MutableStateFlow<AppNotice?>(null)
     private val busy = MutableStateFlow(false)
 
     val state: StateFlow<SetupUiState> = combine(
         app.container.settings.snapshot,
-        tokenDraft,
-        chatDraft,
-        urlDraft,
-        combine(flash, busy) { notice, isBusy -> notice to isBusy },
-    ) { settings, token, chat, url, extra ->
+        combine(tokenDraft, chatDraft) { token, chat -> token to chat },
+        combine(urlDraft, encodeDraft, decodeDraft) { url, encode, decode ->
+            Triple(url, encode, decode)
+        },
+        flash,
+        busy,
+    ) { settings, telegram, npoint, notice, isBusy ->
         SetupUiState(
-            token = token ?: settings.botToken,
-            chatId = chat ?: settings.chatId,
-            npointUrl = url ?: settings.npointUrl,
-            notice = extra.first,
-            busy = extra.second,
+            token = telegram.first ?: settings.botToken,
+            chatId = telegram.second ?: settings.chatId,
+            npointUrl = npoint.first ?: settings.npointUrl,
+            npointEncodeKey = npoint.second ?: settings.npointEncodeKey,
+            npointDecodeKey = npoint.third ?: settings.npointDecodeKey,
+            notice = notice,
+            busy = isBusy,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SetupUiState())
 
@@ -57,6 +65,20 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onUrlChange(value: String) {
         urlDraft.value = value
+    }
+
+    fun onEncodeChange(value: String) {
+        encodeDraft.value = value
+    }
+
+    fun onDecodeChange(value: String) {
+        decodeDraft.value = value
+    }
+
+    fun generateKeys() {
+        val pair = app.container.crypto.generateKeyPair()
+        encodeDraft.value = pair.encodeKey
+        decodeDraft.value = pair.decodeKey
     }
 
     fun consumeNotice() {
@@ -88,11 +110,31 @@ class SetupViewModel(application: Application) : AndroidViewModel(application) {
                 flash.value = AppNotice(title = "npoint", message = NpointSender.INVALID_URL)
                 return@launch
             }
-            app.container.settings.ensureNpointKeys()
+            if (current.npointEncodeKey.isBlank() || current.npointDecodeKey.isBlank()) {
+                flash.value = AppNotice(
+                    title = "npoint",
+                    message = "Generate keys or paste encode and decode keys",
+                )
+                return@launch
+            }
+            runCatching {
+                app.container.settings.setNpointKeys(
+                    current.npointEncodeKey,
+                    current.npointDecodeKey,
+                )
+            }.onFailure { error ->
+                flash.value = AppNotice(
+                    title = "npoint",
+                    message = error.message ?: "Invalid keys",
+                )
+                return@launch
+            }
             app.container.settings.setNpointUrl(current.npointUrl)
             app.container.settings.setNpointEnabled(true)
             app.container.settings.setForwardingEnabled(false)
             urlDraft.value = null
+            encodeDraft.value = null
+            decodeDraft.value = null
         }
     }
 

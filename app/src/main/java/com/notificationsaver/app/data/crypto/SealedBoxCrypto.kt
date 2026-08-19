@@ -17,9 +17,22 @@ class SealedBoxCrypto {
         )
     }
 
+    fun parseKeyPair(encodeKey: String, decodeKey: String): KeyPairStrings {
+        val publicKey = decode32(encodeKey, "encode")
+        val secretKey = decode32(decodeKey, "decode")
+        val derived = ByteArray(Box.PUBLICKEYBYTES)
+        val ok = sodium.cryptoScalarMultBase(derived, secretKey)
+        require(ok && derived.contentEquals(publicKey)) {
+            "encode and decode keys do not match"
+        }
+        return KeyPairStrings(
+            encodeKey = encode(publicKey),
+            decodeKey = encode(secretKey),
+        )
+    }
+
     fun seal(plaintext: String, encodeKey: String): String {
-        val publicKey = decode(encodeKey)
-        require(publicKey.size == Box.PUBLICKEYBYTES) { "encode key must be 32 bytes" }
+        val publicKey = decode32(encodeKey, "encode")
         val message = plaintext.toByteArray(StandardCharsets.UTF_8)
         val cipher = ByteArray(message.size + Box.SEALBYTES)
         val ok = sodium.cryptoBoxSeal(cipher, message, message.size.toLong(), publicKey)
@@ -33,6 +46,14 @@ class SealedBoxCrypto {
         fun encode(bytes: ByteArray): String = Base64.encodeToString(bytes, FLAGS)
 
         fun decode(value: String): ByteArray = Base64.decode(value.trim(), FLAGS)
+
+        private fun decode32(value: String, label: String): ByteArray {
+            val bytes = runCatching { decode(value) }.getOrElse {
+                throw IllegalArgumentException("$label key is not valid Base64")
+            }
+            require(bytes.size == Box.PUBLICKEYBYTES) { "$label key must be 32 bytes" }
+            return bytes
+        }
     }
 }
 

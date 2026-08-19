@@ -17,7 +17,7 @@ Home → **npoint bin**.
 | **Encode key** | Curve25519 **public** key (32 bytes) | This app seals with it. Also stored in the JSON as `encodeKey`. Safe to share with the bin. |
 | **Decode key** | Curve25519 **secret** key (32 bytes) | Other apps open the boxes. **Never** uploaded. Treat like a password. |
 
-The app generates both keys. Copy them, or **Reset keys** for a new pair (old items will not open). **Clear bin** POSTs `{ "items": [] }` and wipes the local buffer.
+Fields start empty. Tap **Generate keys**, or paste a pair you already have, then **Save**. After keys are saved they lock; **Edit keys** unlocks them to paste a different pair. **Generate keys** again (with confirmation if a pair already exists) fills a new pair — old items will not open. **Clear bin** POSTs `{ "items": [] }` and wipes the local buffer.
 
 ---
 
@@ -175,7 +175,7 @@ Decode key → public key must equal `encodeKey`:
 encodeKey  ==  Base64URL( X25519_public_from_private( decodeKey ) )
 ```
 
-If **Reset keys** was used, old `items` will fail to open even if `encodeKey` is the new public key (those boxes were sealed to the old public key). Clear the bin after a reset if other apps should not keep unreadable ciphertext.
+If **Generate keys** replaced an existing pair, old `items` will fail to open even if `encodeKey` is the new public key (those boxes were sealed to the old public key). Clear the bin after generating if other apps should not keep unreadable ciphertext.
 
 ---
 
@@ -185,6 +185,6 @@ If **Reset keys** was used, old `items` will fail to open even if `encodeKey` is
 - The **phone** itself (it holds plaintext notifications and both keys).
 - **Telegram** (plaintext HTML to your chat).
 - **npoint availability**, size limits, or rate limits (about 100 req/min per IP, 600 per bin).
-- Items after you **reset keys** without clearing the bin.
+- Items after you **generate new keys** without clearing the bin.
 
 Create the bin on npoint.io **while logged out** so POST works without a bearer token. If POST returns 401, the bin is owned — make a new unowned bin.

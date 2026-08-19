@@ -114,21 +114,18 @@ class SettingsRepository(
         dataStore.edit { it[KEY_OTP_ONLY] = enabled }
     }
 
-    suspend fun ensureNpointKeys(): AppSettings {
-        val current = current()
-        if (current.npointEncodeKey.isNotBlank() && current.npointDecodeKey.isNotBlank()) {
-            return current
-        }
-        return resetNpointKeys()
-    }
-
-    suspend fun resetNpointKeys(): AppSettings {
-        val pair = crypto.generateKeyPair()
+    suspend fun setNpointKeys(encodeKey: String, decodeKey: String): AppSettings {
+        val pair = crypto.parseKeyPair(encodeKey, decodeKey)
         dataStore.edit { prefs ->
             prefs[KEY_NPOINT_ENCODE] = pair.encodeKey
             prefs[KEY_NPOINT_DECODE] = pair.decodeKey
         }
         return current()
+    }
+
+    suspend fun resetNpointKeys(): AppSettings {
+        val pair = crypto.generateKeyPair()
+        return setNpointKeys(pair.encodeKey, pair.decodeKey)
     }
 
     suspend fun setPackageAllowed(packageName: String, allowed: Boolean) {

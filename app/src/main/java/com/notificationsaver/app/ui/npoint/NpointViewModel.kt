@@ -26,6 +26,7 @@ data class NpointUiState(
     val bearer: String = "",
     val encodeKey: String = "",
     val decodeKey: String = "",
+    val keysEditable: Boolean = true,
     val configured: Boolean = false,
     val notice: AppNotice? = null,
     val busy: Boolean = false,
@@ -35,32 +36,34 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
     private val app = application as NotificationSaverApp
     private val urlDraft = MutableStateFlow<String?>(null)
     private val bearerDraft = MutableStateFlow<String?>(null)
+    private val encodeDraft = MutableStateFlow<String?>(null)
+    private val decodeDraft = MutableStateFlow<String?>(null)
+    private val keysUnlocked = MutableStateFlow(false)
     private val flash = MutableStateFlow<AppNotice?>(null)
     private val busy = MutableStateFlow(false)
 
     val state: StateFlow<NpointUiState> = combine(
         app.container.settings.snapshot,
-        urlDraft,
-        bearerDraft,
+        combine(urlDraft, bearerDraft) { url, bearer -> url to bearer },
+        combine(encodeDraft, decodeDraft, keysUnlocked) { encode, decode, unlocked ->
+            Triple(encode, decode, unlocked)
+        },
         flash,
         busy,
-    ) { settings, url, bearer, notice, isBusy ->
+    ) { settings, urlBearer, keys, notice, isBusy ->
+        val storedKeys = settings.npointEncodeKey.isNotBlank() &&
+            settings.npointDecodeKey.isNotBlank()
         NpointUiState(
-            url = url ?: settings.npointUrl,
-            bearer = bearer ?: settings.npointBearer,
-            encodeKey = settings.npointEncodeKey,
-            decodeKey = settings.npointDecodeKey,
+            url = urlBearer.first ?: settings.npointUrl,
+            bearer = urlBearer.second ?: settings.npointBearer,
+            encodeKey = keys.first ?: settings.npointEncodeKey,
+            decodeKey = keys.second ?: settings.npointDecodeKey,
+            keysEditable = !storedKeys || keys.third,
             configured = settings.npointConfigured,
             notice = notice,
             busy = isBusy,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NpointUiState())
-
-    init {
-        viewModelScope.launch {
-            app.container.settings.ensureNpointKeys()
-        }
-    }
 
     fun onUrlChange(value: String) {
         urlDraft.value = value
@@ -70,13 +73,39 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
         bearerDraft.value = value
     }
 
+    fun onEncodeChange(value: String) {
+        encodeDraft.value = value
+    }
+
+    fun onDecodeChange(value: String) {
+        decodeDraft.value = value
+    }
+
+    fun editKeys() {
+        keysUnlocked.value = true
+    }
+
+    fun generateKeys() {
+        val stored = app.container.settings.cached
+        if (stored.npointEncodeKey.isNotBlank() || stored.npointDecodeKey.isNotBlank()) {
+            flash.value = AppNotice(
+                title = "Generate keys",
+                message = "Old npoint items cannot be decrypted with the new pair. Clear the bin after this if other apps should not keep ciphertext they cannot open.",
+                actionLabel = "Generate",
+                action = NoticeAction.ConfirmResetKeys,
+            )
+            return
+        }
+        fillGeneratedKeys()
+    }
+
     fun consumeNotice() {
         flash.value = null
     }
 
     fun performNoticeAction(action: NoticeAction) {
         when (action) {
-            NoticeAction.ConfirmResetKeys -> resetKeys()
+            NoticeAction.ConfirmResetKeys -> applyGeneratedKeys()
             NoticeAction.ConfirmClearBin -> clearBin()
             else -> Unit
         }
@@ -84,16 +113,7 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
 
     fun save() {
         viewModelScope.launch {
-            val current = state.value
-            if (!NpointSender.isValidUrl(current.url) && current.url.isNotBlank()) {
-                flash.value = AppNotice(title = "npoint", message = NpointSender.INVALID_URL)
-                return@launch
-            }
-            app.container.settings.ensureNpointKeys()
-            app.container.settings.setNpointUrl(current.url)
-            app.container.settings.setNpointBearer(current.bearer)
-            urlDraft.value = null
-            bearerDraft.value = null
+            persistDrafts()?.let { return@launch }
             flash.value = AppNotice(
                 title = "Saved",
                 message = "The bin URL stays on this phone. Keys never go to npoint.",
@@ -104,15 +124,6 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
     fun copyEncodeKey() = copy("encode key", state.value.encodeKey)
 
     fun copyDecodeKey() = copy("decode key", state.value.decodeKey)
-
-    fun requestResetKeys() {
-        flash.value = AppNotice(
-            title = "Reset keys",
-            message = "Old npoint items cannot be decrypted with the new pair. Clear the bin after this if other apps should not keep ciphertext they cannot open.",
-            actionLabel = "Reset",
-            action = NoticeAction.ConfirmResetKeys,
-        )
-    }
 
     fun requestClearBin() {
         flash.value = AppNotice(
@@ -125,15 +136,13 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
 
     fun testConnection() {
         viewModelScope.launch {
-            val current = state.value
-            app.container.settings.ensureNpointKeys()
-            app.container.settings.setNpointUrl(current.url)
-            app.container.settings.setNpointBearer(current.bearer)
-            urlDraft.value = null
-            bearerDraft.value = null
+            persistDrafts()?.let { return@launch }
             val settings = app.container.settings.current()
             if (!settings.npointConfigured) {
-                flash.value = AppNotice(title = "npoint", message = NpointSender.INVALID_URL)
+                flash.value = AppNotice(
+                    title = "npoint",
+                    message = "Save the npoint API URL and keys first",
+                )
                 return@launch
             }
             busy.value = true
@@ -173,21 +182,65 @@ class NpointViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun resetKeys() {
-        viewModelScope.launch {
-            app.container.settings.resetNpointKeys()
-            flash.value = AppNotice(
-                title = "Keys reset",
-                message = "Copy the new decode key into other apps. Clear the bin if you want to drop old ciphertext.",
-            )
+    private fun applyGeneratedKeys() {
+        fillGeneratedKeys()
+        flash.value = AppNotice(
+            title = "Keys generated",
+            message = "Save to keep this pair. Old npoint items cannot be decrypted with it. Clear the bin if you want to drop old ciphertext.",
+        )
+    }
+
+    private fun fillGeneratedKeys() {
+        val pair = app.container.crypto.generateKeyPair()
+        encodeDraft.value = pair.encodeKey
+        decodeDraft.value = pair.decodeKey
+        keysUnlocked.value = true
+    }
+
+    private suspend fun persistDrafts(): AppNotice? {
+        val current = state.value
+        if (!NpointSender.isValidUrl(current.url) && current.url.isNotBlank()) {
+            val notice = AppNotice(title = "npoint", message = NpointSender.INVALID_URL)
+            flash.value = notice
+            return notice
         }
+        if (current.encodeKey.isBlank() || current.decodeKey.isBlank()) {
+            val notice = AppNotice(
+                title = "npoint",
+                message = "Generate keys or paste encode and decode keys",
+            )
+            flash.value = notice
+            return notice
+        }
+        val keysError = runCatching {
+            app.container.settings.setNpointKeys(current.encodeKey, current.decodeKey)
+        }.exceptionOrNull()
+        if (keysError != null) {
+            val notice = AppNotice(
+                title = "npoint",
+                message = keysError.message ?: "Invalid keys",
+            )
+            flash.value = notice
+            return notice
+        }
+        app.container.settings.setNpointUrl(current.url)
+        app.container.settings.setNpointBearer(current.bearer)
+        urlDraft.value = null
+        bearerDraft.value = null
+        encodeDraft.value = null
+        decodeDraft.value = null
+        keysUnlocked.value = false
+        return null
     }
 
     private fun clearBin() {
         viewModelScope.launch {
             val settings = app.container.settings.current()
             if (!settings.npointConfigured) {
-                flash.value = AppNotice(title = "npoint", message = NpointSender.INVALID_URL)
+                flash.value = AppNotice(
+                    title = "npoint",
+                    message = "Save the npoint API URL and keys first",
+                )
                 return@launch
             }
             busy.value = true

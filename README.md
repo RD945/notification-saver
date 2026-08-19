@@ -100,7 +100,7 @@ Off by default. When on, a notification is queued only if the title/body looks l
 
 Full spec, field meanings, wire format, and decrypt code: **[ENCRYPTION.md](ENCRYPTION.md)**.
 
-The app generates a Curve25519 **encode key** (public) and **decode key** (secret). Each npoint item is libsodium `crypto_box_seal`. The public bin is ciphertext. Copy the decode key into other apps; it is never uploaded.
+The app uses a Curve25519 **encode key** (public) and **decode key** (secret). Tap **Generate keys** or paste a pair; keys are not created until you do. Each npoint item is libsodium `crypto_box_seal`. The public bin is ciphertext. Copy the decode key into other apps; it is never uploaded.
 
 **Bearer token** on the npoint screen is an npoint *account* key for owned/premium bins. Leave it blank. It is not the encode or decode key.
 
@@ -125,7 +125,7 @@ Room stores delivery logs and the local npoint item buffer. Backup is disabled.
 
 **Setup** (first launch until Telegram or npoint is saved)
 
-- Bot token and chat ID, or an npoint API URL
+- Bot token and chat ID, or an npoint API URL plus encode/decode keys (generate or paste)
 - Save and continue / test Telegram
 
 **Home**
@@ -141,7 +141,7 @@ Room stores delivery logs and the local npoint item buffer. Backup is disabled.
 
 **Telegram** — edit token / chat ID, ignore-Telegram switch, test again.
 
-**npoint** — API URL, optional bearer (owned bins only — leave blank), copy/reset encode and decode keys, test, clear bin. See [ENCRYPTION.md](ENCRYPTION.md).
+**npoint** — API URL, optional bearer (owned bins only — leave blank), generate/paste/edit encode and decode keys, test, clear bin. See [ENCRYPTION.md](ENCRYPTION.md).
 
 **Apps** — search installed apps, check the ones to forward.
 
@@ -170,7 +170,7 @@ For a **group**: add the bot, send a message in the group, then use the group’
 
 ### 3. In the app
 
-1. Save Telegram, or paste an npoint API URL and continue (or both).
+1. Save Telegram, or paste an npoint API URL and keys (or tap Generate keys) and continue (or both).
 2. Home → **Notification access** → enable **Notification Saver**.
 3. **Apps** tab → check at least one app.
 4. Leave **Forward to Telegram** and/or **Forward to npoint** on.
@@ -181,8 +181,8 @@ For a **group**: add the bot, send a message in the group, then use the group’
 ### 4. npoint bin (optional)
 
 1. On [npoint.io](https://www.npoint.io/), stay **logged out**, create a JSON bin, copy `https://api.npoint.io/…`.
-2. In the app: Home → **npoint bin** → paste the URL → Save. Leave **Bearer token** empty.
-3. Copy **encode key** and **decode key**. Other apps need the **decode key** ([ENCRYPTION.md](ENCRYPTION.md)).
+2. In the app: Home → **npoint bin** (or Setup) → paste the URL. Leave **Bearer token** empty. Tap **Generate keys**, or paste encode and decode keys, then **Save**.
+3. Copy **encode key** and **decode key**. Other apps need the **decode key** ([ENCRYPTION.md](ENCRYPTION.md)). **Edit keys** unlocks the fields later if you need to paste a different pair.
 4. Turn **Forward to npoint** on. **Test connection** should append a sealed “Connection test” item.
 5. **Clear bin** replaces the document with an empty `items` list.
 
