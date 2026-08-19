@@ -27,6 +27,7 @@ Install the **debug** APK. The release APK from this project is unsigned and wil
 - [Build the APK (Windows)](#build-the-apk-windows)
 - [Install](#install)
 - [Keep it alive on Samsung (One UI)](#keep-it-alive-on-samsung-one-ui)
+- [Why Settings shows 0%](#why-settings-shows-0)
 - [Project layout](#project-layout)
 - [Privacy](#privacy)
 - [ENCRYPTION.md](ENCRYPTION.md)
@@ -133,8 +134,8 @@ Room stores delivery logs and the local npoint item buffer. Backup is disabled.
 - Forward to npoint switch
 - npoint bin (URL, keys, test, clear)
 - OTP only switch (off by default)
-- Notification access, Listener, Target apps
-- Battery (unrestricted) and hourly Telegram ping
+- Notification access, Listener, Activity, Target apps
+- Battery (unrestricted; phone may still show 0%) and hourly Telegram ping
 - Send test to Telegram
 - Reset all
 
@@ -146,7 +147,7 @@ Room stores delivery logs and the local npoint item buffer. Backup is disabled.
 
 **Logs** — recent deliveries, extracted OTP when present, and errors.
 
-Tapping **Target apps** opens the Apps tab. Tapping **Listener** opens notification-access settings if it is off, or rebinds if it is on. Tapping **Battery** after it is already Unrestricted opens this app’s system battery / app-info page (the allow-dialog is a no-op once granted).
+Tapping **Target apps** opens the Apps tab. Tapping **Listener** opens notification-access settings if it is off, or rebinds if it is on. Tapping **Battery** after it is already Unrestricted opens this app’s system battery / app-info page (the allow-dialog is a no-op once granted). Samsung Device Care may still show **0%** for this app; that is expected (see below). **Activity** is the in-app proof the listener is working.
 
 On Samsung, **Autostart / background** opens this app’s system **App info** page. Tap **Battery** and set Unrestricted / allow background usage. Samsung’s **Never sleeping apps → +** search often **will not show** a newly installed or debug-sideloaded app — Device Care only offers apps it has already been managing. That is a Samsung filter, not a missing icon in this project.
 
@@ -311,6 +312,19 @@ Do all of these:
 4. Do not force-stop the app. After a reboot, unlock the phone once so the listener can bind.
 
 Xiaomi / Oppo / Vivo / Huawei / OnePlus / Asus open their own autostart screens when that row is shown.
+
+### Why Settings shows 0%
+
+The app does not (and cannot) publish a battery percentage into Settings. Android `BatteryStats` estimates energy from this app’s UID. There is no foreground service, no wakelock, and no persistent notification, so usage is usually a fraction of a percent. Samsung Device Care often **rounds that to 0%** or omits the app from the graph. If Home **Activity** updates and Logs is filling, the process is running.
+
+Ground truth from a PC:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb shell dumpsys batterystats com.notificationsaver.app.debug
+```
+
+Look for `Uid u0a…` CPU / network. Tiny numbers plus working forwards means healthy, not a reporting bug.
 
 ---
 

@@ -132,6 +132,11 @@ fun HomeScreen(
                 )
                 GroupedDivider()
                 GroupedRow(
+                    title = "Activity",
+                    subtitle = state.activitySubtitle,
+                )
+                GroupedDivider()
+                GroupedRow(
                     title = "Target apps",
                     subtitle = if (state.settings.allowlist.isEmpty()) {
                         "None selected — tap to choose"
@@ -147,7 +152,11 @@ fun HomeScreen(
             GroupedList {
                 GroupedRow(
                     title = "Battery",
-                    subtitle = if (state.batteryExempt) "Unrestricted" else "Tap to allow unrestricted",
+                    subtitle = if (state.batteryExempt) {
+                        "Unrestricted — phone may still show 0% (normal)"
+                    } else {
+                        "Tap to allow unrestricted"
+                    },
                     onClick = { DeviceStatus.openBatterySettings(context) },
                     trailing = { StatusDot(state.batteryExempt) },
                 )

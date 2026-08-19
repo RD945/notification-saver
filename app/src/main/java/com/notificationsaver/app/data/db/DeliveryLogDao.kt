@@ -19,6 +19,12 @@ interface DeliveryLogDao {
     @Query("SELECT COUNT(*) FROM delivery_logs WHERE status = 'QUEUED'")
     suspend fun queuedCount(): Int
 
+    @Query("SELECT COUNT(*) FROM delivery_logs")
+    fun observeCount(): Flow<Int>
+
+    @Query("SELECT MAX(queuedAt) FROM delivery_logs")
+    fun observeLastQueuedAt(): Flow<Long?>
+
     @Query(
         """
         UPDATE delivery_logs

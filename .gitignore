@@ -14,3 +14,7 @@
 .kotlin
 .cursor
 
+# Local ADB debloat notes / logs (device-specific, not app source)
+ADB-DEBLOAT.md
+adb-debloat-log.txt
+

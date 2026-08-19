@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 
 data class HomeUiState(
     val settings: AppSettings = AppSettings(),
@@ -28,9 +30,30 @@ data class HomeUiState(
     val batteryExempt: Boolean = false,
     val notice: AppNotice? = null,
     val busy: Boolean = false,
+    val capturedCount: Int = 0,
+    val lastQueuedAt: Long? = null,
 ) {
     val canForward: Boolean
         get() = settings.setupComplete && hasAccess && settings.allowlist.isNotEmpty()
+
+    val activitySubtitle: String
+        get() {
+            val listener = when {
+                listenerConnected -> "Listener connected"
+                settings.listenerShouldRun -> "Listener waiting"
+                else -> "Listener idle"
+            }
+            val count = if (capturedCount == 0) {
+                "none captured"
+            } else {
+                "$capturedCount captured"
+            }
+            val last = lastQueuedAt?.let { at ->
+                val whenText = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(at))
+                "last $whenText"
+            }
+            return listOfNotNull(listener, count, last).joinToString(" · ")
+        }
 }
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,21 +61,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val extra = MutableStateFlow(0)
     private val flash = MutableStateFlow<AppNotice?>(null)
     private val busy = MutableStateFlow(false)
+    private val dao = app.container.database.deliveryLogDao()
 
     val state: StateFlow<HomeUiState> = combine(
         app.container.settings.snapshot,
         ListenerStatus.connected,
         extra,
-        flash,
-        busy,
-    ) { settings, connected, _, notice, isBusy ->
+        combine(flash, busy) { notice, isBusy -> notice to isBusy },
+        combine(dao.observeCount(), dao.observeLastQueuedAt()) { count, last -> count to last },
+    ) { settings, connected, _, noticeBusy, activity ->
         HomeUiState(
             settings = settings,
             listenerConnected = connected,
             hasAccess = DeviceStatus.hasNotificationAccess(app),
             batteryExempt = DeviceStatus.isIgnoringBatteryOptimizations(app),
-            notice = notice,
-            busy = isBusy,
+            notice = noticeBusy.first,
+            busy = noticeBusy.second,
+            capturedCount = activity.first,
+            lastQueuedAt = activity.second,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
